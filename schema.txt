@@ -1,0 +1,102 @@
+CREATE TYPE order_status AS ENUM ('Pending', 'Shipped', 'Delivered', 'Cancelled');
+CREATE TYPE payment_status AS ENUM ('Pending', 'Completed', 'Failed');
+CREATE TYPE payment_method AS ENUM ('Credit Card', 'Debit Card', 'PayPal', 'Cash on Delivery');
+CREATE TYPE session_status AS ENUM ('Active', 'Expired', 'Revoked');
+
+CREATE TABLE Users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    password_hash VARCHAR(255) NOT NULL,
+    address TEXT,
+    phone VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE Sessions (
+    session_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    status session_status DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours'),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Shops (
+    shop_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE Shop_Admins (
+    shop_id INT NOT NULL,
+    user_id INT NOT NULL,
+    PRIMARY KEY (shop_id, user_id),
+    FOREIGN KEY (shop_id) REFERENCES Shops(shop_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Products (
+    product_id SERIAL PRIMARY KEY,
+    shop_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(100),
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    stock_quantity INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shop_id) REFERENCES Shops(shop_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Cart (
+    cart_id SERIAL PRIMARY KEY,
+    user_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE Cart_Items (
+    cart_item_id SERIAL PRIMARY KEY,
+    cart_id INT,
+    product_id INT,
+    quantity INT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (cart_id) REFERENCES Cart(cart_id),
+    FOREIGN KEY (product_id) REFERENCES Products(product_id)
+);
+
+CREATE TABLE Orders (
+    order_id SERIAL PRIMARY KEY,
+    user_id INT,
+    total_amount DECIMAL(10,2) NOT NULL,
+    status order_status DEFAULT 'Pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    address TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE Order_Items (
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INT,
+    product_id INT,
+    quantity INT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES Orders(order_id),
+    FOREIGN KEY (product_id) REFERENCES Products(product_id)
+);
+
+CREATE TABLE Payments (
+    payment_id SERIAL PRIMARY KEY,
+    order_id INT,
+    user_id INT,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method payment_method NOT NULL,
+    status payment_status DEFAULT 'Pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES Orders(order_id),
+    FOREIGN KEY (user_id) REFERENCES Users(user_id)
+);
